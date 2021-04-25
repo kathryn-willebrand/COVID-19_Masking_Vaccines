@@ -1,0 +1,374 @@
+---
+title: "Transmission Dynamics of COVID-19 under differenteial levels of masking and vaccination"
+author: "Kathryn Willebrand"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document 
+
+---
+```{r Source, include=FALSE, eval=FALSE}
+setwd("C:/Users/Justin/Box/Masks_Vaccines/")
+source("0.Parameters.r")
+source("0.Model.R")
+source("0.Model_NoVax_117.R")
+library(deSolve)
+library(ggplot2)
+
+```
+
+###### MODEL - B.1.1.7 ######
+
+### constant_117 Mask Proportion 
+``` {r mod mask proportion - constant_117, include=FALSE}
+### constant_117 Masking 
+mask_percent <- c(0, 0.25, 0.5, 0.75, 1)
+
+constant_117 <- list()
+
+for (i in 1:length(mask_percent)) { 
+    parms_maskFun$beta <- beta_117
+    parms_maskFun$m_v <- 1
+    parms_maskFun$m_u <- 1
+    parms_maskFun$base_mask <- mask_percent[i]
+    constant_117[[i]] <- as.data.frame(ode(init_maskFun, times, seir_maskFun, parms_maskFun))
+
+}
+
+```
+
+### Mask Proportion Decreasing Over Time
+``` {r mod mask proportion - decreasing, include=FALSE}
+### 75% mask baseline -> [x]% remove masks after vaccination 
+### Output: 
+  # [[1]]-[[5]]: Unvax - 0%
+  # [[6]]-[[10]]: Unvax - 25%
+  # [[11]]-[[15]]: Unvax - 50%
+  # [[16]]-[[20]]: Unvax - 75%
+  # [[21]]-[[25]]: Unvax - 100%
+
+c.decrease_117 <- list()
+
+mask_v <- rep(c(0, 0.25, 0.5, 0.75, 1), 5)
+mask_u <- c(rep(0, 5), rep(0.25, 5), rep(0.5, 5), rep(0.75, 5), rep(1, 5))
+#length(mask_v)
+#length(mask_u)
+
+
+for (i in 1:length(mask_v)) { 
+    parms_maskFun$beta <- beta_117
+    parms_maskFun$m_v <- mask_v[i]
+    parms_maskFun$m_u <- mask_u[i]
+    c.decrease_117[[i]] <- as.data.frame(ode(init_maskFun, times, seir_maskFun, parms_maskFun))
+
+}
+
+```
+
+
+###### ANALYSIS ######
+
+### B.1.1.7 - Constant Masking - Table Values 
+```{r table variables, include=FALSE}
+###No Vaccination 
+    ### TOTAL CASES
+    c.cases_117_noVax <- (model_noVax_117$i.flow.in + model_noVax_117$a.flow.in)[301]
+    
+    ### PEAK CASES
+    max_c.cases_117_noVax <- max(model_noVax_117$I + model_noVax_117$A)
+    
+    ### TOTAL HOSPITALIZATIONS
+    c.hosp_117_noVax<- model_noVax_117$h.flow.in[301]
+    
+    ### PEAK HOSPITALIZATIONS
+    max_c.hosp_117_noVax <- max(model_noVax_117$H)
+  
+    ### TOTAL DEATHS
+    c.death_117_noVax <- model_noVax_117$mh.flow[301]
+    
+    ### PEAK DEATHS)
+    max_c.death_117_noVax <- max(model_noVax_117$M)
+    
+
+### Table Outputs 
+    c.cases_117 <- list()
+    c.cases_117_vax <- list()
+    c.cases_117_total <- list()
+    max_c.cases_117 <- list()
+    max_c.cases_117_vax <- list()
+    max_c.cases_117_tot <- list()
+    
+    c.hosp_117 <- list()
+    c.hosp_117_vax <- list()
+    c.hosp_117_total <- list()
+    max_c.hosp_117 <- list()
+    max_c.hosp_117_vax <- list()
+    max_c.hosp_117_tot <- list()
+    
+    c.death_117 <- list()
+    c.death_117_vax <- list()
+    c.death_117_total <- list()
+    max_c.death_117 <- list()
+
+for (i in 1:length(mask_percent)) { 
+ 
+    ### TOTAL CASES
+    c.cases_117[[i]] <- (constant_117[[i]]$i.flow.in + constant_117[[i]]$a.flow.in)[301]
+    c.cases_117_vax[[i]] <- (constant_117[[i]]$iv.flow.in + constant_117[[i]]$av.flow.in)[301]
+    c.cases_117_total[[i]] <- c.cases_117[[i]]+c.cases_117_vax[[i]]
+    
+    ### PEAK CASES
+    max_c.cases_117[[i]] <- max(constant_117[[i]]$I + constant_117[[i]]$A)
+    max_c.cases_117_vax[[i]] <- max(constant_117[[i]]$IV + constant_117[[i]]$AV)
+    max_c.cases_117_tot[[i]] <- max(constant_117[[i]]$IV + constant_117[[i]]$AV + constant_117[[i]]$I + constant_117[[i]]$A)
+    
+    ### TOTAL HOSPITALIZATIONS
+    c.hosp_117[[i]] <- constant_117[[i]]$h.flow.in[301]
+    c.hosp_117_vax[[i]] <- constant_117[[i]]$hv.flow.in[301]
+    c.hosp_117_total[[i]] <- c.hosp_117[[i]] + c.hosp_117_vax[[i]]
+  
+    ### PEAK HOSPITALIZATIONS
+    max_c.hosp_117[[i]] <- max(constant_117[[i]]$H)
+    max_c.hosp_117_vax[[i]] <- max(constant_117[[i]]$HV)
+    max_c.hosp_117_tot[[i]] <- max(constant_117[[i]]$HV + constant_117[[i]]$H)
+    
+    ### TOTAL DEATHS
+    c.death_117[[i]] <- constant_117[[i]]$mh.flow[301]
+    c.death_117_vax[[i]] <- constant_117[[i]]$mhv.flow[301]
+    c.death_117_total[[i]] <- c.death_117[[i]] + c.death_117_vax[[i]]
+    
+    ### PEAK DEATHS
+    max_c.death_117[[i]] <- max(constant_117[[i]]$M)
+    
+}
+
+### Data Matrix  
+tab.constant_117 <- matrix(c(c.cases_117[[1]],c.cases_117[[2]],c.cases_117[[3]],c.cases_117[[4]],c.cases_117[[5]],c.cases_117_noVax,
+                 c.cases_117_vax[[1]],c.cases_117_vax[[2]],c.cases_117_vax[[3]],c.cases_117_vax[[4]],c.cases_117_vax[[5]],NA,
+                 c.cases_117_total[[1]], c.cases_117_total[[2]], c.cases_117_total[[3]], c.cases_117_total[[4]], c.cases_117_total[[5]], NA,
+              
+                 max_c.cases_117[[1]],max_c.cases_117[[2]],max_c.cases_117[[3]],max_c.cases_117[[4]],max_c.cases_117[[5]],max_c.cases_117_noVax,
+                 max_c.cases_117_vax[[1]],max_c.cases_117_vax[[2]],max_c.cases_117_vax[[3]],max_c.cases_117_vax[[4]],max_c.cases_117_vax[[5]],NA,
+                 max_c.cases_117_tot[[1]],max_c.cases_117_tot[[2]],max_c.cases_117_tot[[3]],max_c.cases_117_tot[[4]],max_c.cases_117_tot[[5]],NA,
+             
+                 c.hosp_117[[1]],c.hosp_117[[2]],c.hosp_117[[3]],c.hosp_117[[4]],c.hosp_117[[5]],c.hosp_117_noVax,
+                 c.hosp_117_vax[[1]],c.hosp_117_vax[[2]],c.hosp_117_vax[[3]],c.hosp_117_vax[[4]],c.hosp_117_vax[[5]],NA,
+                 c.hosp_117_total[[1]], c.hosp_117_total[[2]], c.hosp_117_total[[3]], c.hosp_117_total[[4]], c.hosp_117_total[[5]], NA,
+             
+                 max_c.hosp_117[[1]],max_c.hosp_117[[2]],max_c.hosp_117[[3]],max_c.hosp_117[[4]],max_c.hosp_117[[5]],max_c.hosp_117_noVax,
+                 max_c.hosp_117_vax[[1]],max_c.hosp_117_vax[[2]],max_c.hosp_117_vax[[3]],max_c.hosp_117_vax[[4]],max_c.hosp_117_vax[[5]],NA,
+                 max_c.hosp_117_tot[[1]],max_c.hosp_117_tot[[2]],max_c.hosp_117_tot[[3]],max_c.hosp_117_tot[[4]],max_c.hosp_117_tot[[5]],NA,
+
+                 c.death_117[[1]],c.death_117[[2]],c.death_117[[3]],c.death_117[[4]],c.death_117[[5]],c.death_117_noVax,
+                 c.death_117_vax[[1]],c.death_117_vax[[2]],c.death_117_vax[[3]],c.death_117_vax[[4]],c.death_117_vax[[5]],NA,
+                 c.death_117_total[[1]],c.death_117_total[[2]],c.death_117_total[[3]],c.death_117_total[[4]],c.death_117_total[[5]], NA,
+             
+                 max_c.death_117[[1]],max_c.death_117[[2]],max_c.death_117[[3]],max_c.death_117[[4]],max_c.death_117[[5]],max_c.death_117_noVax), ncol = 6, byrow = TRUE) 
+
+```
+
+### Decreasing Masking - Table Values 
+```{r table variables, include=FALSE}
+### Table Outputs 
+    cases_117 <- list()
+    cases_117_vax <- list()
+    cases_117_total <- list()
+    max_cases_117 <- list()
+    max_cases_117_vax <- list()
+    max_cases_117_tot <- list()
+    
+    hosp_117 <- list()
+    hosp_117_vax <- list()
+    hosp_117_total <- list()
+    max_hosp_117 <- list()
+    max_hosp_117_vax <- list()
+    max_hosp_117_tot <- list()
+    
+    death_117 <- list()
+    death_117_vax <- list()
+    death_117_total <- list()
+    max_death_117 <- list()
+    
+    mat.loop_117 <- list()
+
+
+### For Loop 
+for (i in 1:length(mask_v)) { 
+ 
+    ### TOTAL CASES
+    cases_117[[i]] <- (c.decrease_117[[i]]$i.flow.in + c.decrease_117[[i]]$a.flow.in)[301]
+    cases_117_vax[[i]] <- (c.decrease_117[[i]]$iv.flow.in + c.decrease_117[[i]]$av.flow.in)[301]
+    cases_117_total[[i]] <- cases_117[[i]]+cases_117_vax[[i]]
+    
+    ### PEAK CASES
+    max_cases_117[[i]] <- max(c.decrease_117[[i]]$I + c.decrease_117[[i]]$A)
+    max_cases_117_vax[[i]] <- max(c.decrease_117[[i]]$IV + c.decrease_117[[i]]$AV)
+    max_cases_117_tot[[i]] <- max(c.decrease_117[[i]]$IV + c.decrease_117[[i]]$AV + c.decrease_117[[i]]$I + c.decrease_117[[i]]$A)
+    
+    ### TOTAL HOSPITALIZATIONS
+    hosp_117[[i]] <- c.decrease_117[[i]]$h.flow.in[301]
+    hosp_117_vax[[i]] <- c.decrease_117[[i]]$hv.flow.in[301]
+    hosp_117_total[[i]] <- hosp_117[[i]] + hosp_117_vax[[i]]
+  
+    ### PEAK HOSPITALIZATIONS
+    max_hosp_117[[i]] <- max(c.decrease_117[[i]]$H)
+    max_hosp_117_vax[[i]] <- max(c.decrease_117[[i]]$HV)
+    max_hosp_117_tot[[i]] <- max(c.decrease_117[[i]]$HV + c.decrease_117[[i]]$HV)
+    
+    ### TOTAL DEATHS
+    death_117[[i]] <- c.decrease_117[[i]]$mh.flow[301]
+    death_117_vax[[i]] <- c.decrease_117[[i]]$mhv.flow[301]
+    death_117_total[[i]] <- death_117[[i]] + death_117_vax[[i]]
+    
+    ### PEAK DEATHS
+    max_death_117[[i]] <- max(c.decrease_117[[i]]$M)
+    
+    mat.loop_117[[i]] <- c(cases_117[[i]], cases_117_vax[[i]], cases_117_total[[i]], max_cases_117[[i]], max_cases_117_vax[[i]], max_cases_117_tot[[i]], 
+             hosp_117[[i]], hosp_117_vax[[i]], hosp_117_total[[i]], max_hosp_117[[i]], max_hosp_117_vax[[i]], max_hosp_117_tot[[i]], 
+             death_117[[i]], death_117_vax[[i]], death_117_total[[i]], max_death_117[[i]])
+    
+}
+
+### Data Matrices   
+
+u_0_117 <- c(mat.loop_117[[1]], mat.loop_117[[2]], mat.loop_117[[3]], mat.loop_117[[4]], mat.loop_117[[5]])
+u_25_117 <- c(mat.loop_117[[6]], mat.loop_117[[7]], mat.loop_117[[8]], mat.loop_117[[9]], mat.loop_117[[10]])
+u_5_117<- c(mat.loop_117[[11]], mat.loop_117[[12]], mat.loop_117[[13]], mat.loop_117[[14]], mat.loop_117[[15]])
+u_75_117 <- c(mat.loop_117[[16]], mat.loop_117[[17]], mat.loop_117[[18]], mat.loop_117[[19]], mat.loop_117[[20]])
+u_1_117<- c(mat.loop_117[[21]], mat.loop_117[[22]], mat.loop_117[[23]], mat.loop_117[[24]], mat.loop_117[[25]])
+
+tab.0_117 <- matrix(u_0_117, ncol = 5, byrow = FALSE)
+tab.25_117 <- matrix(u_25_117, ncol = 5, byrow = FALSE) 
+tab.5_117 <- matrix(u_5_117, ncol = 5, byrow = FALSE) 
+tab.75_117 <- matrix(u_75_117, ncol = 5, byrow = FALSE) 
+tab.1_117 <- matrix(u_1_117, ncol = 5, byrow = FALSE)     
+     
+
+```
+
+
+### TABLES
+```{r table, echo=FALSE}
+
+### Row and Column Names 
+column.names <-c("0%",	"25% ",	"50% ",	"75% ",	"100%")
+row.names <- c("Total Cases - Unvaccinated", "Total Cases - Vaccinated", "Total Cases", 
+                          "Peak Cases - Unvaccinated", "Peak Cases - Vaccinated", "Peak Cases - Total",
+                          
+                          "Total Hospitalizations - Unvaccinated", "Total Hospitalizations - Vaccinated", "Total Hospitalizations",
+                          "Peak Hospitalizations - Unvaccinated", "Peak Hospitalizations - Vaccinated", "Peak Hospitalizations - Total",
+              
+                          "Total Deaths - Unvaccinated", "Total Deaths - Vaccinated", "Total Deaths",
+                          "Peak Deaths" )
+
+### TABLES 
+      ### constant_117 
+            print("Unvaccinated - 0")
+            colnames(tab.constant_117) <- c("0%",	"25% ",	"50% ",	"75% ",	"100%", "75% No Vaccines")
+            rownames(tab.constant_117) <- row.names
+            as.table(round(tab.constant_117))
+            print("", quote = FALSE)
+      
+      ### Unvaxxed 0%
+            print("Unvaccinated - 0")
+            colnames(tab.0_117) <- column.names
+            rownames(tab.0_117) <- row.names
+            as.table(round(tab.0_117))
+            print("", quote = FALSE)
+            
+      ###  Unvaxxed 25%
+            print("Unvaccinated - 25%")
+            colnames(tab.25_117) <- column.names
+            rownames(tab.25_117) <- row.names
+            as.table(round(tab.25_117))
+            print("", quote = FALSE)
+            
+            
+      ### Unvaxxed 50%
+            print("Unvaccinated - 50%")
+            colnames(tab.5_117) <- column.names
+            rownames(tab.5_117) <- row.names
+            as.table(round(tab.5_117))
+            print("", quote = FALSE)
+      
+      ### Unvaxxed 75%
+            print("Unvaccinated - 75%")
+            colnames(tab.75_117) <- column.names
+            rownames(tab.75_117) <- row.names
+            as.table(round(tab.75_117))
+            print("", quote = FALSE)
+            
+      ### Unvaxxed 100%
+            print("Unvaccinated - 100%")
+            colnames(tab.1_117) <- column.names
+            rownames(tab.1_117) <- row.names
+            as.table(round(tab.1_117))
+      
+```
+
+
+### FIGURES 
+
+# CASES
+```{r Figure 2}
+### Constant
+ggplot() + geom_line(data=constant_117[[1]], aes(x=time, y=I+IV+A+AV, col="0%"), lwd=1) + geom_line(data=constant_117[[2]], aes(x=time, y=I+IV+A+AV, col="25%"), lwd=1) + geom_line(data=constant_117[[3]], aes(x=time, y=I+IV+A+AV, col="50%"), lwd=1) + geom_line(data=constant_117[[4]], aes(x=time, y=I+IV+A+AV, col="75%"), lwd=1) +  geom_line(data=constant_117[[5]], aes(x=time, y=I+IV+A+AV, col="100%"), lwd=1) +  geom_line(data=model_noVax_117, aes(x=time, y=I+A, col="75% - No Vaccination"), lwd=1) + scale_color_manual(values=c('#B24745FF','#374E55FF', '#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#6A6599FF')) + theme_classic() + labs(title="Cases: Constant Masking", x="Days", y="Cases") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 0% 
+ggplot() + geom_line(data=c.decrease_117[[1]], aes(x=time, y=I+IV+A+AV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[2]], aes(x=time, y=I+IV+A+AV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[3]], aes(x=time, y=I+IV+A+AV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[4]], aes(x=time, y=I+IV+A+AV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[5]], aes(x=time, y=I+IV+A+AV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Cases: k = 0", x="Days", y="Cases") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 25% 
+ggplot() + geom_line(data=c.decrease_117[[6]], aes(x=time, y=I+IV+A+AV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[7]], aes(x=time, y=I+IV+A+AV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[8]], aes(x=time, y=I+IV+A+AV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[9]], aes(x=time, y=I+IV+A+AV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[10]], aes(x=time, y=I+IV+A+AV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Cases: k = 0.25", x="Days", y="Cases") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 50% 
+ggplot() + geom_line(data=c.decrease_117[[11]], aes(x=time, y=I+IV+A+AV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[12]], aes(x=time, y=I+IV+A+AV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[13]], aes(x=time, y=I+IV+A+AV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[14]], aes(x=time, y=I+IV+A+AV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[15]], aes(x=time, y=I+IV+A+AV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Cases: k = 0.5", x="Days", y="Cases") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 75% 
+ggplot() + geom_line(data=c.decrease_117[[16]], aes(x=time, y=I+IV+A+AV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[17]], aes(x=time, y=I+IV+A+AV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[18]], aes(x=time, y=I+IV+A+AV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[19]], aes(x=time, y=I+IV+A+AV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[20]], aes(x=time, y=I+IV+A+AV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Cases: k = 0.75", x="Days", y="Cases") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 100% 
+ggplot() + geom_line(data=c.decrease_117[[21]], aes(x=time, y=I+IV+A+AV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[22]], aes(x=time, y=I+IV+A+AV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[23]], aes(x=time, y=I+IV+A+AV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[24]], aes(x=time, y=I+IV+A+AV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[25]], aes(x=time, y=I+IV+A+AV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Cases: k = 1", x="Days", y="Cases") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+```
+
+# HOSPITALIZATION
+```{r Figure 2}
+### Constant
+ggplot() + geom_line(data=constant_117[[1]], aes(x=time, y=H+HV, col="0%"), lwd=1) + geom_line(data=constant_117[[2]], aes(x=time, y=H+HV, col="25%"), lwd=1) + geom_line(data=constant_117[[3]], aes(x=time, y=H+HV, col="50%"), lwd=1) + geom_line(data=constant_117[[4]], aes(x=time, y=H+HV, col="75%"), lwd=1) +  geom_line(data=constant_117[[5]], aes(x=time, y=H+HV, col="100%"), lwd=1) +  geom_line(data=model_noVax_117, aes(x=time, y=H, col="75% - No Vaccination"), lwd=1) + scale_color_manual(values=c('#B24745FF','#374E55FF', '#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#6A6599FF')) + theme_classic() + labs(title="Hospitalizations: Constant Masking", x="Days", y="Hospitalizations") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 0%
+ggplot() + geom_line(data=c.decrease_117[[1]], aes(x=time, y=H+HV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[2]], aes(x=time, y=H+HV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[3]], aes(x=time, y=H+HV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[4]], aes(x=time, y=H+HV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[5]], aes(x=time, y=H+HV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Hospitalizations: k = 0", x="Days", y="Hospitalizations") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 25% 
+ggplot() + geom_line(data=c.decrease_117[[6]], aes(x=time, y=H+HV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[7]], aes(x=time, y=H+HV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[8]], aes(x=time, y=H+HV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[9]], aes(x=time, y=H+HV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[10]], aes(x=time, y=H+HV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Hospitalizations: k = 0.25", x="Days", y="Hospitalizations") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 50% 
+ggplot() + geom_line(data=c.decrease_117[[11]], aes(x=time, y=H+HV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[12]], aes(x=time, y=H+HV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[13]], aes(x=time, y=H+HV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[14]], aes(x=time, y=H+HV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[15]], aes(x=time, y=H+HV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Hospitalizations: k = 0.5", x="Days", y="Hospitalizations") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 75% 
+ggplot() + geom_line(data=c.decrease_117[[16]], aes(x=time, y=H+HV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[17]], aes(x=time, y=H+HV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[18]], aes(x=time, y=H+HV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[19]], aes(x=time, y=H+HV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[20]], aes(x=time, y=H+HV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Hospitalizations: k = 0.75", x="Days", y="Hospitalizations") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 100% 
+ggplot() + geom_line(data=c.decrease_117[[21]], aes(x=time, y=H+HV, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[22]], aes(x=time, y=H+HV, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[23]], aes(x=time, y=H+HV, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[24]], aes(x=time, y=H+HV, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[25]], aes(x=time, y=H+HV, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Hospitalizations: k = 1", x="Days", y="Hospitalizations") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+```
+
+# DEATHS
+```{r Figure 2}
+### Constant
+ggplot() + geom_line(data=constant_117[[1]], aes(x=time, y=M, col="0%"), lwd=1) + geom_line(data=constant_117[[2]], aes(x=time, y=M, col="25%"), lwd=1) + geom_line(data=constant_117[[3]], aes(x=time, y=M, col="50%"), lwd=1) + geom_line(data=constant_117[[4]], aes(x=time, y=M, col="75%"), lwd=1) +  geom_line(data=constant_117[[5]], aes(x=time, y=M, col="100%"), lwd=1) +  geom_line(data=model_noVax_117, aes(x=time, y=M, col="75% - No Vaccination"), lwd=1) + scale_color_manual(values=c('#B24745FF','#374E55FF', '#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#6A6599FF')) + theme_classic() + labs(title="Deaths: Constant Masking", x="Days", y="Deaths") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 0%
+ggplot() + geom_line(data=c.decrease_117[[1]], aes(x=time, y=M, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[2]], aes(x=time, y=M, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[3]], aes(x=time, y=M, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[4]], aes(x=time, y=M, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[5]], aes(x=time, y=M, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Deaths: k = 0", x="Days", y="Deaths") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 25% 
+ggplot() + geom_line(data=c.decrease_117[[6]], aes(x=time, y=M, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[7]], aes(x=time, y=M, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[8]], aes(x=time, y=M, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[9]], aes(x=time, y=M, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[10]], aes(x=time, y=M, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Deaths: k = 0.25", x="Days", y="Deaths") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 50% 
+ggplot() + geom_line(data=c.decrease_117[[11]], aes(x=time, y=M, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[12]], aes(x=time, y=M, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[13]], aes(x=time, y=M, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[14]], aes(x=time, y=M, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[15]], aes(x=time, y=M, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Deaths: k = 0.5", x="Days", y="Deaths") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 75% 
+ggplot() + geom_line(data=c.decrease_117[[16]], aes(x=time, y=M, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[17]], aes(x=time, y=M, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[18]], aes(x=time, y=M, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[19]], aes(x=time, y=M, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[20]], aes(x=time, y=M, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Deaths: k = 0.75", x="Days", y="Deaths") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+### 100% 
+ggplot() + geom_line(data=c.decrease_117[[21]], aes(x=time, y=M, col="0%"), lwd=1) + geom_line(data=c.decrease_117[[22]], aes(x=time, y=M, col="25%"), lwd=1) + geom_line(data=c.decrease_117[[23]], aes(x=time, y=M, col="50%"), lwd=1) + geom_line(data=c.decrease_117[[24]], aes(x=time, y=M, col="75%"), lwd=1) +  geom_line(data=c.decrease_117[[25]], aes(x=time, y=M, col="75% - constant_117"), lwd=1) + scale_color_manual(values=c('#B24745FF','#DF8F44FF', '#79AF97FF', '#00A1D5FF', '#374E55FF')) + theme_classic() + labs(title="Deaths: k = 1", x="Days", y="Deaths") + theme(plot.title = element_text(size=15, face="bold", hjust = 0.5), legend.position = "none")
+
+```
